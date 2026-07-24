@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /transactions
+Disallow: /analytics
+Disallow: /copilot
+Disallow: /upload
+Disallow: /profile
+Disallow: /settings
