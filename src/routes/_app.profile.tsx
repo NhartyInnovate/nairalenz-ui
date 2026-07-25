@@ -15,8 +15,9 @@ import {
   X,
   Edit2,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useFinanceStore } from "@/lib/store";
+import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/profile")({
@@ -26,14 +27,21 @@ export const Route = createFileRoute("/_app/profile")({
 
 function Profile() {
   const { profile, updateProfile, files } = useFinanceStore();
+  const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
 
   // Local state for the editing form
-  const [fullName, setFullName] = useState(profile.fullName);
+  const [fullName, setFullName] = useState(user?.full_name || profile.fullName);
   const [householdSize, setHouseholdSize] = useState(profile.householdSize);
   const [monthlyIncome, setMonthlyIncome] = useState(profile.monthlyIncome);
   const [primaryGoal, setPrimaryGoal] = useState(profile.primaryGoal);
   const [riskTolerance, setRiskTolerance] = useState(profile.riskTolerance);
+
+  useEffect(() => {
+    if (user) {
+      setFullName(user.full_name);
+    }
+  }, [user]);
 
   const handleSave = () => {
     updateProfile({
@@ -73,7 +81,7 @@ function Profile() {
           <div className="relative -mt-12 px-6 pb-6">
             <div className="relative inline-block">
               <span className="grid h-24 w-24 place-items-center rounded-2xl bg-gradient-primary text-2xl font-semibold text-primary-foreground ring-4 ring-card">
-                {profile.fullName
+                {(user?.full_name || profile.fullName)
                   .split(" ")
                   .map((n) => n[0])
                   .join("")}
@@ -83,17 +91,16 @@ function Profile() {
               </button>
             </div>
             <div className="mt-4 flex items-center gap-2">
-              <h2 className="font-display text-3xl italic tracking-tight">{profile.fullName}</h2>
+              <h2 className="font-display text-3xl italic tracking-tight">{user?.full_name || profile.fullName}</h2>
               <Badge variant="gold">Pro</Badge>
             </div>
-            <p className="text-sm text-muted-foreground">Product Manager · Lagos, Nigeria</p>
 
             <ul className="mt-6 space-y-2 text-sm">
-              <Row icon={<Mail className="h-3.5 w-3.5" />} label="adaeze@nairalens.ai" />
-              <Row icon={<Phone className="h-3.5 w-3.5" />} label="+234 812 000 4210" />
-              <Row icon={<MapPin className="h-3.5 w-3.5" />} label="Lekki Phase 1, Lagos" />
-              <Row icon={<Briefcase className="h-3.5 w-3.5" />} label="Netfixed Ltd · PM" />
-              <Row icon={<Calendar className="h-3.5 w-3.5" />} label="Joined April 2026" />
+              <Row icon={<Mail className="h-3.5 w-3.5" />} label={user?.email || "user@nairalens.ai"} />
+              <Row 
+                icon={<Calendar className="h-3.5 w-3.5" />} 
+                label={`Joined ${user?.created_at ? new Date(user.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`} 
+              />
             </ul>
 
             <div className="mt-6 flex gap-2">

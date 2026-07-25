@@ -6,7 +6,8 @@ export function useUploadStatement() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (file: File) => statementsService.uploadStatement(file),
+    mutationFn: ({ file, bankName }: { file: File; bankName?: string }) => 
+      statementsService.uploadStatement(file, bankName),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["statements"] });
     },

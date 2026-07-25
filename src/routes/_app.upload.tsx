@@ -25,6 +25,7 @@ export const Route = createFileRoute("/_app/upload")({
 });
 
 const NIGERIAN_BANKS = [
+  "Auto-Detect",
   "GTBank",
   "Access Bank",
   "Zenith Bank",
@@ -39,7 +40,7 @@ const NIGERIAN_BANKS = [
 function Upload() {
   const { files, addUploadedFile, deleteFile } = useFinanceStore();
   const [dragOver, setDragOver] = useState(false);
-  const [selectedBank, setSelectedBank] = useState<string>("GTBank");
+  const [selectedBank, setSelectedBank] = useState<string>("Auto-Detect");
   const [activeStatementId, setActiveStatementId] = useState<string | null>(null);
   const [uploadingFileName, setUploadingFileName] = useState<string>("");
 
@@ -104,7 +105,7 @@ function Upload() {
   const startUpload = async (file: File) => {
     setUploadingFileName(file.name);
     try {
-      const res = await uploadMutation.mutateAsync(file);
+      const res = await uploadMutation.mutateAsync({ file, bankName: selectedBank });
       if (res && res.id) {
         setActiveStatementId(res.id);
         toast.info(`Statement ${file.name} uploaded. Processing...`);
@@ -113,6 +114,11 @@ function Upload() {
         simulateLocalFallback(file.name);
       }
     } catch (err: any) {
+      if (err.message && err.message.includes("Please specify your bank manually")) {
+        toast.error("Bank could not be automatically detected. Please select your bank manually from the dropdown and retry.");
+        setUploadingFileName("");
+        return;
+      }
       console.warn("Backend statement upload endpoint error, performing fallback:", err);
       simulateLocalFallback(file.name);
     }

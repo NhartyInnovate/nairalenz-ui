@@ -2,9 +2,12 @@ import { apiClient } from "./api-client";
 import { ApiResponse, StatementUploadData } from "@/types/api";
 
 export const statementsService = {
-  async uploadStatement(file: File): Promise<StatementUploadData> {
+  async uploadStatement(file: File, bankName?: string): Promise<StatementUploadData> {
     const formData = new FormData();
     formData.append("file", file);
+    if (bankName) {
+      formData.append("bank_name", bankName);
+    }
 
     const res = await apiClient<ApiResponse<StatementUploadData>>("/statements/upload", {
       method: "POST",

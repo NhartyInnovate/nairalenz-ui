@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { PageContainer, SectionHeader } from "@/components/ui-kit";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,10 +10,14 @@ import {
   MoreHorizontal,
   RefreshCw,
   Loader2,
+  Wallet,
+  ArrowRight,
+  AlertTriangle,
 } from "lucide-react";
 import { useState } from "react";
 import { getIconForCategory } from "@/lib/store";
 import { useTransactions } from "@/hooks/use-transactions";
+import { useStatements } from "@/hooks/use-statements";
 import { toast } from "sonner";
 import { motion } from "motion/react";
 
@@ -46,6 +50,101 @@ function Transactions() {
     category: selectedCat === "All" ? undefined : selectedCat,
     search: searchQuery.trim() || undefined,
   });
+
+  const { data: statements, isLoading: isStatementsLoading } = useStatements();
+
+  const hasCompleted = statements && statements.some(s => s.upload_status === "COMPLETED");
+  const hasProcessing = statements && statements.some(s => 
+    ["UPLOADED", "QUEUED", "PARSING", "NORMALIZING"].includes(s.upload_status)
+  );
+
+  if (isStatementsLoading || isLoading) {
+    return (
+      <PageContainer>
+        <div className="flex h-[calc(100vh-10rem)] items-center justify-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" /> Loading transactions...
+        </div>
+      </PageContainer>
+    );
+  }
+
+  if (!hasCompleted) {
+    if (hasProcessing) {
+      return (
+        <PageContainer>
+          <SectionHeader
+            eyebrow="Processing"
+            title="Analyzing Statement"
+            description="We are processing your documents to generate your ledger."
+          />
+          <div className="mt-8 flex flex-col items-center justify-center rounded-2xl border border-border bg-card p-12 text-center">
+            <div className="grid h-16 w-16 place-items-center rounded-full bg-primary/10 text-primary">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+            <h3 className="mt-6 text-lg font-semibold text-foreground">Processing your statement...</h3>
+            <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+              Our AI engine is currently parsing and normalizing your transactions. This usually takes under 10 seconds.
+            </p>
+          </div>
+        </PageContainer>
+      );
+    }
+
+    const hasFailed = statements && statements.length > 0 && statements.every(s => s.upload_status === "FAILED");
+    if (hasFailed) {
+      return (
+        <PageContainer>
+          <SectionHeader
+            eyebrow="Error"
+            title="Analysis Failed"
+            description="We encountered an issue with your statement."
+          />
+          <div className="mt-8 flex flex-col items-center justify-center rounded-2xl border border-destructive/20 bg-card p-12 text-center">
+            <div className="grid h-16 w-16 place-items-center rounded-full bg-destructive/10 text-destructive">
+              <AlertTriangle className="h-8 w-8" />
+            </div>
+            <h3 className="mt-6 text-lg font-semibold text-foreground">Statement processing failed</h3>
+            <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+              We encountered an error while parsing your uploaded file. Please make sure you upload a supported PDF or CSV statement.
+            </p>
+            <div className="mt-6">
+              <Link to="/upload">
+                <Button variant="outline" className="border-destructive text-destructive hover:bg-destructive/10">
+                  Try Uploading Again
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </PageContainer>
+      );
+    }
+
+    return (
+      <PageContainer>
+        <SectionHeader
+          eyebrow="Ledger"
+          title="Transactions"
+          description="Every line of every statement — searchable, categorized, exportable."
+        />
+        <div className="mt-8 flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card p-12 text-center">
+          <div className="grid h-16 w-16 place-items-center rounded-full bg-primary/10 text-primary">
+            <Wallet className="h-8 w-8" />
+          </div>
+          <h3 className="mt-6 text-lg font-semibold text-foreground">Upload your first bank statement</h3>
+          <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+            Get instant AI insights, category spend breakdowns, and financial health score analysis by uploading your statement.
+          </p>
+          <div className="mt-6">
+            <Link to="/upload">
+              <Button variant="hero">
+                Import Statement <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </PageContainer>
+    );
+  }
 
   const transactions = txnsData?.items || [];
   const totalItems = txnsData?.total || transactions.length;
