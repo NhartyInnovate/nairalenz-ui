@@ -188,8 +188,6 @@ function Dashboard() {
     { d: "Sun", v: 4.2 },
   ];
 
-  const firstName = user?.full_name ? user.full_name.split(" ")[0] : "Adaeze";
-
   return (
     <PageContainer>
       <SectionHeader
