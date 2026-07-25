@@ -6,7 +6,7 @@ const getBaseUrl = (): string => {
   if (typeof process !== "undefined" && process.env.REACT_APP_API_BASE_URL) {
     return process.env.REACT_APP_API_BASE_URL;
   }
-  return "https://api.nairalenz.ai/api/v1";
+  return "http://localhost:8000/api/v1";
 };
 
 export const AUTH_TOKEN_KEY = "nairalens_auth_token";

@@ -36,3 +36,18 @@ export function useStatementStatus(id: string | null) {
     },
   });
 }
+
+export function useStatements() {
+  return useQuery<StatementUploadData[]>({
+    queryKey: ["statements"],
+    queryFn: async () => {
+      try {
+        return await statementsService.getStatements();
+      } catch (err) {
+        console.warn("Backend statements query failed, returning empty list fallback:", err);
+        return [];
+      }
+    },
+    staleTime: 0,
+  });
+}

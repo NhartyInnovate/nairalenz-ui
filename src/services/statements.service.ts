@@ -22,4 +22,12 @@ export const statementsService = {
 
     return res.data;
   },
+
+  async getStatements(): Promise<StatementUploadData[]> {
+    const res = await apiClient<ApiResponse<StatementUploadData[]>>("/statements", {
+      method: "GET",
+    });
+
+    return res.data;
+  },
 };

@@ -17,8 +17,11 @@ import {
   PolarAngleAxis,
 } from "recharts";
 import { useFinanceStore } from "@/lib/store";
+import { useStatements } from "@/hooks/use-statements";
+import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { motion } from "motion/react";
+import { Wallet, ArrowRight, Loader2, AlertTriangle } from "lucide-react";
 
 export const Route = createFileRoute("/_app/analytics")({
   head: () => ({ meta: [{ title: "Analytics — NairaLens AI" }] }),
@@ -27,9 +30,103 @@ export const Route = createFileRoute("/_app/analytics")({
 
 function Analytics() {
   const { transactions } = useFinanceStore();
+  const { data: statements, isLoading: isStatementsLoading } = useStatements();
+
+  const hasCompleted = statements && statements.some(s => s.upload_status === "COMPLETED");
+  const hasProcessing = statements && statements.some(s => 
+    ["UPLOADED", "QUEUED", "PARSING", "NORMALIZING"].includes(s.upload_status)
+  );
+
+  if (isStatementsLoading) {
+    return (
+      <PageContainer>
+        <div className="flex h-[calc(100vh-10rem)] items-center justify-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" /> Loading analytics...
+        </div>
+      </PageContainer>
+    );
+  }
+
+  if (!hasCompleted) {
+    if (hasProcessing) {
+      return (
+        <PageContainer>
+          <SectionHeader
+            eyebrow="Processing"
+            title="Analyzing Statement"
+            description="We are processing your documents to generate analytics."
+          />
+          <div className="mt-8 flex flex-col items-center justify-center rounded-2xl border border-border bg-card p-12 text-center">
+            <div className="grid h-16 w-16 place-items-center rounded-full bg-primary/10 text-primary">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+            <h3 className="mt-6 text-lg font-semibold text-foreground">Processing your statement...</h3>
+            <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+              Our AI engine is currently parsing and normalizing your transactions. This usually takes under 10 seconds.
+            </p>
+          </div>
+        </PageContainer>
+      );
+    }
+
+    const hasFailed = statements && statements.length > 0 && statements.every(s => s.upload_status === "FAILED");
+    if (hasFailed) {
+      return (
+        <PageContainer>
+          <SectionHeader
+            eyebrow="Error"
+            title="Analysis Failed"
+            description="We encountered an issue with your statement."
+          />
+          <div className="mt-8 flex flex-col items-center justify-center rounded-2xl border border-destructive/20 bg-card p-12 text-center">
+            <div className="grid h-16 w-16 place-items-center rounded-full bg-destructive/10 text-destructive">
+              <AlertTriangle className="h-8 w-8" />
+            </div>
+            <h3 className="mt-6 text-lg font-semibold text-foreground">Statement processing failed</h3>
+            <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+              We encountered an error while parsing your uploaded file. Please make sure you upload a supported PDF or CSV statement.
+            </p>
+            <div className="mt-6">
+              <Link to="/upload">
+                <Button variant="outline" className="border-destructive text-destructive hover:bg-destructive/10">
+                  Try Uploading Again
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </PageContainer>
+      );
+    }
+
+    return (
+      <PageContainer>
+        <SectionHeader
+          eyebrow="Insights"
+          title="Financial Analytics"
+          description="Advanced spend trends, anomaly detection, and cashflow charts."
+        />
+        <div className="mt-8 flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-card p-12 text-center">
+          <div className="grid h-16 w-16 place-items-center rounded-full bg-primary/10 text-primary">
+            <Wallet className="h-8 w-8" />
+          </div>
+          <h3 className="mt-6 text-lg font-semibold text-foreground">Upload your first bank statement</h3>
+          <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+            Get instant AI insights, category spend breakdowns, and financial health score analysis by uploading your statement.
+          </p>
+          <div className="mt-6">
+            <Link to="/upload">
+              <Button variant="hero">
+                Import Statement <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </PageContainer>
+    );
+  }
 
   // 1. Dynamic Metric Calculations
-  const baseBalance = 1800000;
+  const baseBalance = 0;
   const netBalance = baseBalance + transactions.reduce((acc, t) => acc + t.amount, 0);
 
   const julyTransactions = transactions.filter((t) => t.date.includes("Jul"));
