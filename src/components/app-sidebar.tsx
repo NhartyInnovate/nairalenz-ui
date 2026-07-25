@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
   LayoutDashboard,
   Upload,
@@ -27,6 +27,8 @@ import { Logo } from "@/components/logo";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
+import { toast } from "sonner";
 
 const main = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
@@ -45,7 +47,23 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
   const isActive = (url: string) => pathname === url || pathname.startsWith(url + "/");
+
+  const getInitials = (name?: string) => {
+    if (!name) return "NL";
+    const parts = name.split(" ");
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    return name.slice(0, 2).toUpperCase();
+  };
+
+  const handleLogout = () => {
+    logout();
+    toast.success("Signed out successfully.");
+    navigate({ to: "/login" });
+  };
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
@@ -150,19 +168,25 @@ export function AppSidebar() {
         >
           <Avatar className="h-8 w-8 shrink-0 ring-2 ring-primary/30">
             <AvatarFallback className="bg-gradient-primary text-xs font-semibold text-primary-foreground">
-              AO
+              {getInitials(user?.full_name)}
             </AvatarFallback>
           </Avatar>
           {!collapsed && (
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-semibold text-foreground">Adaeze Okafor</p>
-              <p className="truncate text-[10px] text-muted-foreground">adaeze@nairalens.ai</p>
+              <p className="truncate text-xs font-semibold text-foreground">
+                {user?.full_name || "NairaLens User"}
+              </p>
+              <p className="truncate text-[10px] text-muted-foreground">
+                {user?.email || "user@nairalens.ai"}
+              </p>
             </div>
           )}
           {!collapsed && (
             <button
-              className="rounded-md p-1 text-muted-foreground transition hover:bg-accent hover:text-foreground"
+              onClick={handleLogout}
+              className="rounded-md p-1 text-muted-foreground transition hover:bg-accent hover:text-foreground cursor-pointer"
               aria-label="Sign out"
+              title="Sign out"
             >
               <LogOut className="h-3.5 w-3.5" />
             </button>

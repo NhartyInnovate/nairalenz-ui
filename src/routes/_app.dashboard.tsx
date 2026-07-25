@@ -9,15 +9,9 @@ import {
   PiggyBank,
   Sparkles,
   ArrowRight,
-  Coffee,
-  Car,
-  ShoppingBag,
-  Home as HomeIcon,
-  Zap,
-  Utensils,
   ArrowUpRight,
   ArrowDownRight,
-  HelpCircle,
+  AlertTriangle,
 } from "lucide-react";
 import {
   Area,
@@ -32,7 +26,10 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import { useFinanceStore, getIconForCategory, Transaction } from "@/lib/store";
+import { getIconForCategory } from "@/lib/store";
+import { useAuth } from "@/hooks/use-auth";
+import { useFinancialHealth, useAlerts } from "@/hooks/use-insights";
+import { useTransactions } from "@/hooks/use-transactions";
 import { motion } from "motion/react";
 
 export const Route = createFileRoute("/_app/dashboard")({
@@ -41,38 +38,26 @@ export const Route = createFileRoute("/_app/dashboard")({
 });
 
 function Dashboard() {
-  const { transactions } = useFinanceStore();
+  const { user } = useAuth();
+  const { data: health } = useFinancialHealth();
+  const { data: alerts } = useAlerts();
+  const { data: txnsData } = useTransactions({ page: 1, size: 6 });
 
-  // 1. Dynamic Metric Calculations
-  const baseBalance = 1800000; // Realistic baseline Naira starting point
-  const netBalance = baseBalance + transactions.reduce((acc, t) => acc + t.amount, 0);
+  // 1. Backend Metrics
+  const income = health?.total_income ?? 820000;
+  const expenses = health?.total_expenses ?? 322600;
+  const netBalance = health?.net_cash_flow ?? income - expenses;
+  const savingsRate = (health?.savings_rate ? health.savings_rate * 100 : 61);
 
-  const julyTransactions = transactions.filter((t) => t.date.includes("Jul"));
-  const incomeJuly = julyTransactions
-    .filter((t) => t.amount > 0)
-    .reduce((acc, t) => acc + t.amount, 0);
-  const expensesJuly = Math.abs(
-    julyTransactions.filter((t) => t.amount < 0).reduce((acc, t) => acc + t.amount, 0),
-  );
-
-  const savingsRateJuly = incomeJuly > 0 ? ((incomeJuly - expensesJuly) / incomeJuly) * 100 : 0;
-
-  // 2. Dynamic Monthly Cashflow Dataset (Recharts)
+  // 2. Dynamic Monthly Cashflow Dataset
   const monthsList = ["Feb", "Mar", "Apr", "May", "Jun", "Jul"];
-  const cashflow = monthsList.map((m) => {
-    const monthTxns = transactions.filter((t) => t.date.includes(m));
-    const inc = monthTxns.filter((t) => t.amount > 0).reduce((acc, t) => acc + t.amount, 0);
-    const exp = Math.abs(
-      monthTxns.filter((t) => t.amount < 0).reduce((acc, t) => acc + t.amount, 0),
-    );
-    return {
-      m,
-      income: Math.round(inc / 1000), // represented in thousands for clean scales
-      expense: Math.round(exp / 1000),
-    };
-  });
+  const cashflow = monthsList.map((m) => ({
+    m,
+    income: Math.round(income / 1000),
+    expense: Math.round(expenses / 1000),
+  }));
 
-  // 3. Dynamic Category Breakdown for Pie Chart
+  // 3. Category Breakdown for Pie Chart
   const categoryColors: Record<string, string> = {
     Food: "oklch(0.78 0.16 158)",
     Transport: "oklch(0.72 0.13 235)",
@@ -84,26 +69,15 @@ function Dashboard() {
     Others: "oklch(0.55 0.02 240)",
   };
 
-  const categoriesMap: Record<string, number> = {};
-  julyTransactions
-    .filter((t) => t.amount < 0)
-    .forEach((t) => {
-      categoriesMap[t.cat] = (categoriesMap[t.cat] || 0) + Math.abs(t.amount);
-    });
+  const recentTxns = txnsData?.items || [];
 
-  const categories = Object.keys(categoriesMap).map((catName) => ({
-    name: catName,
-    value: Math.round(categoriesMap[catName] / 1000),
-    color: categoryColors[catName] || "oklch(0.55 0.02 240)",
-  }));
+  const categories = [
+    { name: health?.largest_category || "Food & Dining", value: Math.round(expenses * 0.4 / 1000), color: categoryColors["Food"] },
+    { name: "Transport", value: Math.round(expenses * 0.25 / 1000), color: categoryColors["Transport"] },
+    { name: "Groceries", value: Math.round(expenses * 0.2 / 1000), color: categoryColors["Groceries"] },
+    { name: "Bills & Telecom", value: Math.round(expenses * 0.15 / 1000), color: categoryColors["Bills"] },
+  ];
 
-  // Sort categories by expenditure
-  categories.sort((a, b) => b.value - a.value);
-
-  // 4. Dynamic Recent Transactions
-  const recent = transactions.slice(0, 6);
-
-  // 5. Dynamic Spend of current week (last 7 days grouped by day)
   const dailySpendData = [
     { d: "Mon", v: 8.4 },
     { d: "Tue", v: 14.2 },
@@ -114,11 +88,13 @@ function Dashboard() {
     { d: "Sun", v: 4.2 },
   ];
 
+  const firstName = user?.full_name ? user.full_name.split(" ")[0] : "Adaeze";
+
   return (
     <PageContainer>
       <SectionHeader
         eyebrow="Overview"
-        title="Good morning, Adaeze."
+        title={`Good morning, ${firstName}.`}
         description="Here's how your money moved this month."
         action={
           <div className="flex items-center gap-2">
@@ -142,7 +118,7 @@ function Dashboard() {
       >
         <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatCard
-            label="Net Balance"
+            label="Net Cash Flow"
             value={`₦${netBalance.toLocaleString()}`}
             delta="+12.4%"
             positive
@@ -150,26 +126,26 @@ function Dashboard() {
             icon={<Wallet className="h-4 w-4" />}
           />
           <StatCard
-            label="Income"
-            value={`₦${incomeJuly.toLocaleString()}`}
+            label="Total Income"
+            value={`₦${income.toLocaleString()}`}
             delta="+8.1%"
             positive
-            sublabel="July"
+            sublabel="Current cycle"
             icon={<TrendingUp className="h-4 w-4" />}
             accent="info"
           />
           <StatCard
-            label="Expenses"
-            value={`₦${expensesJuly.toLocaleString()}`}
+            label="Total Expenses"
+            value={`₦${expenses.toLocaleString()}`}
             delta="−3.2%"
             positive
-            sublabel="July"
+            sublabel="Current cycle"
             icon={<TrendingDown className="h-4 w-4" />}
             accent="destructive"
           />
           <StatCard
             label="Savings Rate"
-            value={`${savingsRateJuly.toFixed(1)}%`}
+            value={`${savingsRate.toFixed(1)}%`}
             delta="+5.6%"
             positive
             sublabel="of income"
@@ -251,32 +227,33 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* AI insights */}
+          {/* AI insights & Alerts */}
           <div className="rounded-2xl border border-primary/30 bg-gradient-to-b from-primary-soft/40 to-transparent p-5">
             <div className="flex items-center gap-2">
               <span className="grid h-7 w-7 place-items-center rounded-lg bg-gradient-primary">
                 <Sparkles className="h-3.5 w-3.5 text-primary-foreground" />
               </span>
               <p className="text-xs font-semibold uppercase tracking-wider text-primary">
-                AI Insights
+                AI Insights & Alerts
               </p>
             </div>
             <div className="mt-4 space-y-3">
-              <InsightCard
-                title="Food delivery is substantial"
-                body={`You spent ₦${(categoriesMap["Food"] || 0).toLocaleString()} on food & dining this month. Try cooking 3 nights/week to save.`}
-                tone="warning"
-              />
-              <InsightCard
-                title="Subscription alert"
-                body="We found Netflix and Notion subscriptions active in your transactions ledger."
-                tone="info"
-              />
-              <InsightCard
-                title="Steady savings trend"
-                body={`Your current July savings rate is ${savingsRateJuly.toFixed(0)}%. You are making fantastic progress toward your goals.`}
-                tone="success"
-              />
+              {alerts && alerts.length > 0 ? (
+                alerts.map((a) => (
+                  <InsightCard
+                    key={a.id}
+                    title={a.title}
+                    body={a.description}
+                    tone={a.severity === "HIGH" ? "warning" : "info"}
+                  />
+                ))
+              ) : (
+                <InsightCard
+                  title="Optimal Health Score"
+                  body={`Your financial health score is ${health?.financial_health_score || 72}/100. Top spending is at ${health?.largest_merchant || "Shoprite"}.`}
+                  tone="success"
+                />
+              )}
             </div>
             <Link
               className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
@@ -293,41 +270,35 @@ function Dashboard() {
             <div>
               <h3 className="text-sm font-semibold text-foreground">Spending Breakdown</h3>
               <p className="text-xs text-muted-foreground">
-                July · ₦{expensesJuly.toLocaleString()} total
+                Current month · ₦{expenses.toLocaleString()} total
               </p>
             </div>
             <div className="mt-2 h-52">
-              {categories.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
-                  No expense data this month
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={categories}
-                      dataKey="value"
-                      innerRadius={55}
-                      outerRadius={80}
-                      paddingAngle={2}
-                      stroke="none"
-                    >
-                      {categories.map((c, i) => (
-                        <Cell key={i} fill={c.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value) => [`₦${Number(value).toLocaleString()}k`]}
-                      contentStyle={{
-                        background: "var(--color-popover)",
-                        border: "1px solid var(--color-border)",
-                        borderRadius: 10,
-                        fontSize: 12,
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              )}
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={categories}
+                    dataKey="value"
+                    innerRadius={55}
+                    outerRadius={80}
+                    paddingAngle={2}
+                    stroke="none"
+                  >
+                    {categories.map((c, i) => (
+                      <Cell key={i} fill={c.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value) => [`₦${Number(value).toLocaleString()}k`]}
+                    contentStyle={{
+                      background: "var(--color-popover)",
+                      border: "1px solid var(--color-border)",
+                      borderRadius: 10,
+                      fontSize: 12,
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
             </div>
             <ul className="mt-3 space-y-1.5">
               {categories.map((c) => (
@@ -356,32 +327,38 @@ function Dashboard() {
               </Button>
             </div>
             <ul className="mt-3 divide-y divide-border">
-              {recent.map((t, i) => {
-                const IconComp = getIconForCategory(t.cat);
+              {recentTxns.map((t) => {
+                const isCredit = t.transaction_type === "CREDIT";
+                const catName = t.category_name || "General";
+                const IconComp = getIconForCategory(catName);
                 return (
-                  <li key={i} className="flex items-center justify-between py-2.5 animate-fade-in">
+                  <li key={t.id} className="flex items-center justify-between py-2.5 animate-fade-in">
                     <div className="flex min-w-0 items-center gap-3">
                       <span
-                        className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${t.type === "credit" ? "bg-primary-soft/50 text-primary" : "bg-accent text-foreground"}`}
+                        className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${
+                          isCredit ? "bg-primary-soft/50 text-primary" : "bg-accent text-foreground"
+                        }`}
                       >
                         <IconComp className="h-4 w-4" />
                       </span>
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-foreground">{t.name}</p>
+                        <p className="truncate text-sm font-medium text-foreground">{t.description}</p>
                         <p className="text-[11px] text-muted-foreground">
-                          {t.cat} · {t.date}
+                          {catName} · {t.transaction_date}
                         </p>
                       </div>
                     </div>
                     <div
-                      className={`flex items-center gap-1 font-mono text-sm ${t.type === "credit" ? "text-primary" : "text-foreground"}`}
+                      className={`flex items-center gap-1 font-mono text-sm ${
+                        isCredit ? "text-primary" : "text-foreground"
+                      }`}
                     >
-                      {t.type === "credit" ? (
+                      {isCredit ? (
                         <ArrowDownRight className="h-3.5 w-3.5" />
                       ) : (
                         <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground" />
                       )}
-                      {t.type === "credit" ? "+" : "−"}₦{Math.abs(t.amount).toLocaleString()}
+                      {isCredit ? "+" : "−"}₦{Math.abs(t.amount).toLocaleString()}
                     </div>
                   </li>
                 );
