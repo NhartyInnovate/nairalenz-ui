@@ -112,7 +112,7 @@ function Copilot() {
     try {
       // 1. Try sending via backend Chat API endpoint
       const response = await sendMessageMutation.mutateAsync({
-        message: text,
+        content: text,
         conversation_id: activeChatId.startsWith("chat-") ? undefined : activeChatId,
       });
 
@@ -168,17 +168,9 @@ function Copilot() {
     }
   };
 
-  const handleClarifyOption = (txnId: string, category: string) => {
-    toast.success(`Transaction categorized as "${category}"!`);
-    const confirmMsg: ChatMessageItem = {
-      role: "assistant",
-      content: `Thank you! Transaction \`${txnId}\` has been updated to **${category}**. Your financial summary reflects this update.`,
-    };
-    setChatSessions((prev) =>
-      prev.map((s) =>
-        s.id === activeChatId ? { ...s, messages: [...s.messages, confirmMsg] } : s
-      )
-    );
+  const handleClarifyOption = async (txnId: string, category: string, description: string) => {
+    toast.info(`Submitting clarification: "${category}"...`);
+    await handleSend(`Please categorize transaction "${description}" (ID: ${txnId}) as ${category}`);
   };
 
   const startNewChat = () => {
@@ -287,7 +279,7 @@ function Copilot() {
                               variant="outline"
                               size="sm"
                               className="text-xs"
-                              onClick={() => handleClarifyOption(m.clarification!.txnId, opt)}
+                              onClick={() => handleClarifyOption(m.clarification!.txnId, opt, m.clarification!.description)}
                             >
                               <Check className="h-3 w-3 mr-1" /> {opt}
                             </Button>
